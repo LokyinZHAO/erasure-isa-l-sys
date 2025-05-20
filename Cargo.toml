@@ -3,4 +3,13 @@ name = "erasure-isa-l-sys"
 version = "0.1.0"
 edition = "2024"
 
-[dependencies]
+[build-dependencies]
+autotools = "0.2.7"
+bindgen = "0.71.0"
+
+[features]
+default = ["bundle"]
+# The bundle feature enables building the dependencies from source. Set by default.
+bundle = ["link_static"]
+# The link_static feature enables linking the dependencies statically.
+link_static = []

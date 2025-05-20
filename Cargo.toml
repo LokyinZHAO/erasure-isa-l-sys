@@ -2,6 +2,14 @@
 name = "erasure-isa-l-sys"
 version = "0.1.0"
 edition = "2024"
+description = "FFI bindings to the isa-l library"
+repository = "https://github.com/LokyinZHAO/erasure-isa-l-sys"
+readme = "README.md"
+license = "MIT"
+categories = ["api-bindings", "external-ffi-bindings"]
+keywords = ["isa-l", "isal", "ffi", "bindings"]
+authors = ["Lokyin ZHAO <lokyinzhao.work@icloud.com>"]
+exclude = ["vendor/isa-l/.git"]
 
 [build-dependencies]
 autotools = "0.2.7"

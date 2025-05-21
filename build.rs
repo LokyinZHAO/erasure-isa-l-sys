@@ -4,7 +4,23 @@ use std::{
     process::Command,
 };
 
-const HEADER_WRAPPER: &str = "./vendor/wrapper.h";
+const ISAL_HEADERS: [&str; 7] = [
+    // #include <crc.h>
+    // #include <crc64.h>
+    // #include <erasure_code.h>
+    // #include <gf_vect_mul.h>
+    // #include <igzip_lib.h>
+    // #include <mem_routines.h>
+    // #include <raid.h>
+    "crc.h",
+    "crc64.h",
+    "erasure_code.h",
+    "gf_vect_mul.h",
+    "igzip_lib.h",
+    "mem_routines.h",
+    "raid.h",
+];
+// const HEADER_WRAPPER: &str = "./vendor/wrapper.h";
 const MODULE_DIR: &str = "./vendor/isa-l";
 
 fn main() {
@@ -37,7 +53,6 @@ fn main() {
 fn bindgen_sys() {
     let out_dir = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
     let binding_out_dir = out_dir.join("bindings");
-    let wrapper_file_path = PathBuf::from(HEADER_WRAPPER);
     let out_file_path = binding_out_dir.join("isal.rs");
 
     println!(
@@ -46,15 +61,19 @@ fn bindgen_sys() {
     );
     std::fs::create_dir_all(&binding_out_dir).expect("fail to create bindings directory");
 
-    // bindgen
+    // bindgpen
+    let headers = ISAL_HEADERS
+        .iter()
+        .map(|header| header.to_string())
+        .collect::<Vec<_>>();
     println!(
-        "-- Generate bindings: {} => {}",
-        wrapper_file_path.display(),
+        "-- Generate bindings: [{}] => {}",
+        headers.join(", "),
         out_file_path.display()
     );
 
     bindgen::Builder::default()
-        .header(wrapper_file_path.to_str().unwrap())
+        .headers(headers)
         .allowlist_item("gf_.*")
         .allowlist_item("ec_.*")
         .impl_debug(true)
@@ -98,7 +117,7 @@ fn build_isal() {
     println!("sh: [./autogen.sh] in {}", src_dir.display());
     let output = Command::new("sh")
         .current_dir(src_dir.clone())
-        .args(&["-c", "./autogen.sh"])
+        .args(["-c", "./autogen.sh"])
         .output()
         .unwrap();
     println!("autogen.sh: {}", String::from_utf8_lossy(&output.stdout));
@@ -124,8 +143,6 @@ fn build_isal() {
 fn bindgen_isal() {
     let out_dir = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
     let binding_out_dir = out_dir.join("bindings");
-    let local_include_path = out_dir.join("include");
-    let header_wrapper = PathBuf::from(HEADER_WRAPPER);
     let out_file = binding_out_dir.join("isal.rs");
 
     println!(
@@ -134,19 +151,27 @@ fn bindgen_isal() {
     );
     std::fs::create_dir_all(&binding_out_dir).expect("fail to create bindings directory");
 
+    // let local_include_path = out_dir.join("include");
+    // let header_wrapper = PathBuf::from(HEADER_WRAPPER);
+    let isa_l_include_path = PathBuf::from(MODULE_DIR).join("include");
+    let headers = ISAL_HEADERS
+        .iter()
+        .map(|header| isa_l_include_path.join(header))
+        .map(|header| header.canonicalize().unwrap())
+        .map(|header| header.to_str().unwrap().to_owned())
+        .collect::<Vec<_>>();
     println!(
-        "-- Generate bindings: {} => {}",
-        header_wrapper.display(),
+        "-- Generate bindings: [{}] => {}",
+        headers.join(", "),
         out_file.display()
     );
-    println!("---- Local include dir: {}", local_include_path.display());
     bindgen::Builder::default()
-        .clang_args(["-isystem", local_include_path.to_str().unwrap()])
-        .header(header_wrapper.to_str().unwrap())
+        // .clang_args(["-isystem", local_include_path.to_str().unwrap()])
+        .headers(headers)
         .impl_debug(true)
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .allowlist_item("gf_.*")
-        // .allowlist_item("ec_.*")
+        .allowlist_item("ec_.*")
         .generate_comments(true)
         .generate()
         .expect("Unable to generate bindings")

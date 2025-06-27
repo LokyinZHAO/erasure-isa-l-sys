@@ -28,29 +28,22 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=vendor");
 
-    // Set libraries to link
-    if cfg!(feature = "link_static") {
-        println!("-- Linking static libraries");
-        println!("cargo:rustc-link-lib=static=isal");
-    } else {
-        println!("cargo:rustc-link-lib=isal");
-    }
-
     // Build libraries
-    if cfg!(feature = "bundle") {
-        if !cfg!(feature = "link_static") {
+    #[cfg(feature = "from_system")]
+    // try to link the system libraries
+    match bindgen_sys() {
+        Ok(_) => return,
+        Err(e) => {
             println!(
-                "cargo::warning=It is discouraged to link shared libraries when bundling. See more: https://doc.rust-lang.org/cargo/reference/build-scripts.html#rustc-link-search"
+                "cargo::warning=Failed to link from system libisal: {e}, falling back to building from source",
             );
         }
-        build_from_source();
-    } else {
-        // try to link the system libraries
-        bindgen_sys();
     }
+    build_from_source().expect("Failed to build from source");
 }
 
-fn bindgen_sys() {
+#[cfg(feature = "from_system")]
+fn bindgen_sys() -> Result<(), String> {
     let out_dir = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
     let binding_out_dir = out_dir.join("bindings");
     let out_file_path = binding_out_dir.join("isal.rs");
@@ -61,13 +54,25 @@ fn bindgen_sys() {
     );
     std::fs::create_dir_all(&binding_out_dir).expect("fail to create bindings directory");
 
-    // bindgpen
-    let headers = ISAL_HEADERS
+    let libisal = pkg_config::Config::new()
+        .atleast_version("2.0.0")
+        .probe("libisal")
+        .map_err(|e| format!("Failed to find libisal: {}", e))?;
+    println!(
+        "-- Found libisal: {} (version: {})",
+        libisal.libs.first().unwrap(),
+        libisal.version
+    );
+
+    let headers = libisal
+        .include_paths
         .iter()
-        .map(|header| header.to_string())
+        .map(|p| p.join("isa-l.h"))
+        .filter(|p| p.exists())
+        .map(|p| p.to_str().unwrap().to_owned())
         .collect::<Vec<_>>();
     println!(
-        "-- Generate bindings: [{}] => {}",
+        "-- Generate system bindings: [{}] => {}",
         headers.join(", "),
         out_file_path.display()
     );
@@ -82,11 +87,36 @@ fn bindgen_sys() {
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file(out_file_path)
-        .expect("Couldn't write bindings!");
+        .map_err(|e| format!("Couldn't write bindings: {}", e))?;
+
+    // Link the library
+    libisal.link_paths.iter().for_each(|path| {
+        println!(
+            "cargo:rustc-link-search=native={}",
+            path.canonicalize().unwrap().display()
+        );
+    });
+    if cfg!(feature = "link_static") {
+        println!("-- Linking static libraries");
+        println!("cargo:rustc-link-lib=static=isal");
+    } else {
+        println!("-- Linking dynamic libraries");
+        println!("cargo:rustc-link-lib=isal");
+    }
+
+    Ok(())
 }
 
-fn build_from_source() {
-    build_isal();
+fn build_from_source() -> Result<(), String> {
+    if !cfg!(feature = "link_static") {
+        println!(
+            "cargo::warning=Linking to libisal.a instead of libisal.so when building from source. Consider add feature: link_static. See more: https://doc.rust-lang.org/cargo/reference/build-scripts.html#rustc-link-search"
+        );
+    }
+    build_isal()?;
+    // Make bindings
+    bindgen_isal()?;
+    // Link the library
     println!(
         "cargo:rustc-link-search=native={}",
         PathBuf::from(std::env::var_os("OUT_DIR").unwrap())
@@ -95,11 +125,11 @@ fn build_from_source() {
             .unwrap()
             .display()
     );
-    // Make bindings
-    bindgen_isal();
+    println!("cargo:rustc-link-lib=static=isal");
+    Ok(())
 }
 
-fn build_isal() {
+fn build_isal() -> Result<(), String> {
     const LIB_NAME: &str = "isal";
 
     // Submodule directory containing upstream source files (readonly)
@@ -119,7 +149,7 @@ fn build_isal() {
         .current_dir(src_dir.clone())
         .args(["-c", "./autogen.sh"])
         .output()
-        .unwrap();
+        .map_err(|e| format!("Failed to run autogen.sh: {}", e))?;
     println!("autogen.sh: {}", String::from_utf8_lossy(&output.stdout));
     eprintln!("autogen.sh: {}", String::from_utf8_lossy(&output.stderr));
 
@@ -133,14 +163,16 @@ fn build_isal() {
         .enable_shared()
         .enable_static()
         .cflag("-O2")
-        .build();
+        .try_build()
+        .map_err(|e| format!("Failed to configure build: {}", e))?;
 
     // cleanup the build dir
     println!("-- Removing build directory {}", build_dir.display());
     std::fs::remove_dir_all(build_dir).unwrap();
+    Ok(())
 }
 
-fn bindgen_isal() {
+fn bindgen_isal() -> Result<(), String> {
     let out_dir = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
     let binding_out_dir = out_dir.join("bindings");
     let out_file = binding_out_dir.join("isal.rs");
@@ -176,7 +208,8 @@ fn bindgen_isal() {
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file(out_file)
-        .expect("Couldn't write bindings!");
+        .map_err(|e| format!("Couldn't write bindings: {}", e))?;
+    Ok(())
 }
 
 fn cp_r(from: impl AsRef<Path>, to: impl AsRef<Path>) {

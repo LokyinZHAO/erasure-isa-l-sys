@@ -1,6 +1,6 @@
 [package]
 name = "erasure-isa-l-sys"
-version = "1.0.1"
+version = "1.0.2"
 edition = "2024"
 description = "FFI bindings to the isa-l library"
 repository = "https://github.com/LokyinZHAO/erasure-isa-l-sys"
@@ -13,11 +13,17 @@ exclude = ["vendor/isa-l/.git"]
 
 [build-dependencies]
 autotools = "0.2.7"
+pkg-config = { version = "0.3.32", optional = true }
 bindgen = "0.71.0"
 
 [features]
-default = ["bundle"]
-# The bundle feature enables building the dependencies from source. Set by default.
-bundle = ["link_static"]
+default = ["from_system"]
+# The bundle feature enables building the dependencies from source.
+from_source = []
+# The from_system feature enables using the system-installed dependencies.
+from_system = ["pkg-config"]
 # The link_static feature enables linking the dependencies statically.
+# Default is dynamic linking.
+# The link_static feature is only effective for `from_sys` feature,
+# and when `from_source` feature is enabled, it will always link statically.
 link_static = []

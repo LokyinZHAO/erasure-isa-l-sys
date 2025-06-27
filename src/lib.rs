@@ -5,12 +5,13 @@
 include!(concat!(env!("OUT_DIR"), "/bindings/isal.rs"));
 
 #[cfg(test)]
-mod tests {
-    use super::*;
+mod test {
+    use crate::gf_inv;
 
     #[test]
-    fn it_works() {
-        let inv = unsafe { gf_inv(1) };
-        assert_eq!(inv, 1);
+    fn link_works() {
+        // This test is to ensure that the library can be linked correctly.
+        // It does not need to do anything, just linking is enough.
+        assert_eq!(unsafe { gf_inv(0) }, 0);
     }
 }

@@ -57,7 +57,7 @@ fn bindgen_sys() -> Result<(), String> {
     let libisal = pkg_config::Config::new()
         .atleast_version("2.0.0")
         .probe("libisal")
-        .map_err(|e| format!("Failed to find libisal: {}", e))?;
+        .map_err(|e| format!("Failed to find libisal: {e}"))?;
     println!(
         "-- Found libisal: {} (version: {})",
         libisal.libs.first().unwrap(),
@@ -87,7 +87,7 @@ fn bindgen_sys() -> Result<(), String> {
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file(out_file_path)
-        .map_err(|e| format!("Couldn't write bindings: {}", e))?;
+        .map_err(|e| format!("Couldn't write bindings: {e}"))?;
 
     // Link the library
     libisal.link_paths.iter().for_each(|path| {
@@ -149,7 +149,7 @@ fn build_isal() -> Result<(), String> {
         .current_dir(src_dir.clone())
         .args(["-c", "./autogen.sh"])
         .output()
-        .map_err(|e| format!("Failed to run autogen.sh: {}", e))?;
+        .map_err(|e| format!("Failed to run autogen.sh: {e}"))?;
     println!("autogen.sh: {}", String::from_utf8_lossy(&output.stdout));
     eprintln!("autogen.sh: {}", String::from_utf8_lossy(&output.stderr));
 
@@ -164,7 +164,7 @@ fn build_isal() -> Result<(), String> {
         .enable_static()
         .cflag("-O2")
         .try_build()
-        .map_err(|e| format!("Failed to configure build: {}", e))?;
+        .map_err(|e| format!("Failed to configure build: {e}"))?;
 
     // cleanup the build dir
     println!("-- Removing build directory {}", build_dir.display());
@@ -206,9 +206,9 @@ fn bindgen_isal() -> Result<(), String> {
         .allowlist_item("ec_.*")
         .generate_comments(true)
         .generate()
-        .expect("Unable to generate bindings")
+        .map_err(|e| format!("Unable to generate bindings: {e}"))?
         .write_to_file(out_file)
-        .map_err(|e| format!("Couldn't write bindings: {}", e))?;
+        .map_err(|e| format!("Couldn't write bindings: {e}"))?;
     Ok(())
 }
 

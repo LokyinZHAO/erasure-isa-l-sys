@@ -1,3 +1,18 @@
+## v1.1.0 (2026-03-09)
+
+### 💚👷 CI & Build
+
+- **github**: add dependabot configurations and CI workflows
+- change build.rs features
+
+### 📌➕⬇️➖⬆️ Dependencies
+
+- **vendor/isa-l**: upgrade isa-l
+
+### 🚨 Linting
+
+- do clippy fix
+
 ## v1.0.1 (2025-05-22)
 
 ### 🐛🚑️ Fixes
